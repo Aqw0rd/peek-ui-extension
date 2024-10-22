@@ -1,0 +1,119 @@
+{
+  "name": "peek",
+  "displayName": "Peek",
+  "description": "Servicebus tool",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+			"activitybar": [
+				{
+					"id": "package-explorer",
+					"title": "Peek",
+					"icon": "media/dep.svg"
+				}
+			]
+		},
+    "viewsWelcome": [
+      {
+        "view": "anho.peek-ui",
+        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:anho.peek-ui.addConnection)"
+      }
+    ],
+    "views": {
+      "package-explorer": [
+        {
+          "id": "anho.peek-ui",
+          "name": "Peek",
+					"icon": "media/dep.svg",
+					"contextualTitle": "Servicebus Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "anho.peek-ui.addConnection",
+        "title": "Add Servicebus Connectionstring"
+      },
+      {
+        "command": "anho.peek-ui.refresh",
+        "title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+      },
+      {
+        "command": "anho.peek-ui.transferDeadletterAll",
+        "title": "Transfer Deadletter (All)"
+      },
+      {
+        "command": "anho.peek-ui.purgeMessages",
+        "title": "Purge Messages"
+      },
+      {
+        "command": "anho.peek-ui.purgeDeadletter",
+        "title": "Purge Deadletter"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "anho.peek-ui.addConnection",
+          "when": "view == anho.peek-ui",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "anho.peek-ui.refresh",
+          "when": "view == anho.peek-ui",
+          "group": "inline"
+        },
+        {
+          "command": "anho.peek-ui.transferDeadletterAll",
+          "when": "view == anho.peek-ui",
+          "group": "group1"
+        },
+        {
+          "command": "anho.peek-ui.purgeMessages",
+          "when": "view == anho.peek-ui",
+          "group": "group2"
+        },
+        {
+          "command": "anho.peek-ui.purgeDeadletter",
+          "when": "view == anho.peek-ui",
+          "group": "group2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@azure/service-bus": "^7.9.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/mocha": "^10.0.8",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.94.0",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.11.1",
+    "typescript": "^5.6.2"
+  }
+}
