@@ -26,27 +26,38 @@ export abstract class SbDependencyBase extends vscode.TreeItem {
   abstract refresh(provider: ServiceBusProvider): Promise<void>
   abstract getDescription(): string
   abstract update(item: SbDependencyBase): void
+
+  setLoading(provider: ServiceBusProvider) {
+    this.iconPath = new vscode.ThemeIcon('loading~spin')
+    provider.refresh(this)
+  }
 }
 
 export class ServiceBusItem extends SbDependencyBase {
   constructor(
     public readonly label: string, // name of sb/queue/topic/subscription
     public readonly connectionString: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    public collapsibleState: vscode.TreeItemCollapsibleState,
+    public isConnected: boolean,
     public queues?: QueueRuntimeProperties[], // queue when sb, subscription when topic
     public topics?: TopicCustomProperties[],
   ) {
-    super(label, connectionString, collapsibleState)
+    super(label, connectionString, isConnected ? collapsibleState : vscode.TreeItemCollapsibleState.None)
 
     this.description = this.getDescription()
+    this.contextValue = isConnected ? 'connectedSbItem' : 'disconnectedSbItem'
   }
 
-  contextValue = 'dependency'
   iconPath = new vscode.ThemeIcon('server-environment')
 
+  connect(provider: ServiceBusProvider) {
+    this.refresh(provider)
+  }
+
   refresh = async (provider: ServiceBusProvider) => {
+    this.setLoading(provider)
     const sbInfo = await service.getServiceBusInfo(this.connectionString)
-    const dep = mapSbToDep(sbInfo)
+    const dep = mapSbToDep(sbInfo, true)
     this.update(dep)
     provider.refresh(this)
   }
@@ -55,9 +66,13 @@ export class ServiceBusItem extends SbDependencyBase {
     this.queues = item.queues
     this.topics = item.topics
     this.description = item.getDescription()
+    this.isConnected = item.isConnected
+    this.collapsibleState = item.collapsibleState
+    this.contextValue = 'connectedSbItem'
+    this.iconPath = new vscode.ThemeIcon('server-environment')
   }
 
-  getDescription = () => `${this.queues?.length ?? 0} queues | ${this.topics?.length ?? 0} topics`
+  getDescription = () => this.isConnected ? `${this.queues?.length ?? 0} queues | ${this.topics?.length ?? 0} topics` : 'Disconnected'
 }
 
 export class QueueItem extends SbDependencyBase implements IInteractableItem {
@@ -78,10 +93,13 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     }
   }
 
+  contextValue = 'childDependency'
+  iconPath = new vscode.ThemeIcon('database')
+
   getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
 
   refresh = async (provider: ServiceBusProvider) => {
-    console.log('refresh')
+    this.setLoading(provider)
     const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
     const dep = mapQueueToDep(queue, this.connectionString)
     this.update(dep)
@@ -92,15 +110,11 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     this.activeMessageCount = item.activeMessageCount
     this.deadLetterMessageCount = item.deadLetterMessageCount
     this.description = item.getDescription()
+    this.iconPath = new vscode.ThemeIcon('database')
   }
 
-  contextValue = 'dependency'
-  iconPath = new vscode.ThemeIcon('server-environment')
-
   transfer = async (provider: ServiceBusProvider) => {
-    console.log('transfer')
     await service.transferQueueDl(this.connectionString, this.label)
-    console.log('calling refresh')
     await this.refresh(provider)
   }
 
@@ -136,12 +150,13 @@ export class TopicItem extends SbDependencyBase {
     this.description = this.getDescription()
   }
 
-  contextValue = 'dependency'
+  contextValue = 'childDependency'
   iconPath = new vscode.ThemeIcon('server-environment')
 
   getDescription = () => `${this.subscriptions?.length ?? 0} subscriptions`
 
   refresh = async (provider: ServiceBusProvider) => {
+    this.setLoading(provider)
     const topic = await service.getTopicCustomProperties(this.connectionString, this.label)
     const dep = mapTopicToDep(topic, this.connectionString)
     this.update(dep)
@@ -152,6 +167,7 @@ export class TopicItem extends SbDependencyBase {
     this.subscriptions = item.subscriptions
     this.collapsibleState = item.subscriptions.length < 1 ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed
     this.description = item.getDescription()
+    this.iconPath = new vscode.ThemeIcon('server-environment')
   }
 }
 
@@ -174,13 +190,13 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     }
   }
 
-  contextValue = 'dependency'
-  iconPath = new vscode.ThemeIcon('server-environment')
+  contextValue = 'childDependency'
+  iconPath = new vscode.ThemeIcon('database')
 
   getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
 
   refresh = async (provider: ServiceBusProvider) => {
-    console.log('refresh')
+    this.setLoading(provider)
     const subscription = await service.getSubscriptionRuntimeProperties(this.connectionString, this.topicName, this.label)
     const dep = mapSubscriptionToDep(subscription, this.connectionString)
     this.update(dep)
@@ -191,10 +207,10 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     this.activeMessageCount = item.activeMessageCount
     this.deadLetterMessageCount = item.deadLetterMessageCount
     this.description = item.getDescription()
+    this.iconPath = new vscode.ThemeIcon('database')
   }
 
   transfer = async (provider: ServiceBusProvider) => {
-    console.log('transfer')
     await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
     await this.refresh(provider)
   }

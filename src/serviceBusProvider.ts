@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import * as service from './serviceBusService'
 import { IServiceBusItem } from './serviceBusItem'
 import { SbDependencyBase, TopicItem, ServiceBusItem } from './models/dependencyModel'
-import { mapQueueToDep, mapSbToDep, mapSubscriptionToDep, mapTopicToDep } from './models/dependencyMapper'
+import { mapQueueToDep, mapSbToDep, mapSubscriptionToDep, mapTopicToDep, mapUnconnectedSbToDep } from './models/dependencyMapper'
 
 export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyBase> {
   private _onDidChangeTreeData: vscode.EventEmitter<SbDependencyBase | undefined | void> = new vscode.EventEmitter<SbDependencyBase | undefined | void>()
@@ -40,18 +40,20 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
   }
 
   async getChildren(element?: SbDependencyBase): Promise<SbDependencyBase[]> {
-    console.log('getting children', element?.label)
     if (!element) {
       const sbItems = this.state.get<IServiceBusItem[]>('anho.peek-ui.state', [])
-      const sbInfos = await Promise.all(sbItems.map(sb => service.getServiceBusInfo(sb.connectionString)))
-      const deps = sbInfos.map(sbInfo => mapSbToDep(sbInfo))
+      const deps = sbItems.map(item => mapUnconnectedSbToDep(item.name, item.connectionString))
+      vscode.commands.executeCommand('setContext', 'anho.peek-ui:isInitialized', false)
       return deps.flat()
     }
 
     if (element instanceof ServiceBusItem) {
-      const queues: SbDependencyBase[] = element.queues ? element.queues.map(queue => mapQueueToDep(queue, element.connectionString)) : []
-      const topics: SbDependencyBase[] = element.topics ? element.topics.map(topic => mapTopicToDep(topic, element.connectionString)) : []
-      return Promise.resolve(queues.concat(topics))
+      if (element.isConnected) {
+        const queues: SbDependencyBase[] = element.queues ? element.queues.map(queue => mapQueueToDep(queue, element.connectionString)) : []
+        const topics: SbDependencyBase[] = element.topics ? element.topics.map(topic => mapTopicToDep(topic, element.connectionString)) : []
+        return Promise.resolve(queues.concat(topics))
+      }
+      return Promise.resolve([])
     }
 
     if (element instanceof TopicItem) {

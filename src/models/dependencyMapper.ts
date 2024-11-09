@@ -3,12 +3,20 @@ import { ServiceBusInfo, TopicCustomProperties } from '../ServiceBusInfo'
 import { QueueItem, ServiceBusItem, SubscriptionItem, TopicItem } from './dependencyModel'
 import { QueueRuntimeProperties, SubscriptionRuntimeProperties } from '@azure/service-bus'
 
-export const mapSbToDep = (sbInfo: ServiceBusInfo): ServiceBusItem => {
+export const mapSbToDep = (sbInfo: ServiceBusInfo, isConnected: boolean): ServiceBusItem => {
   return new ServiceBusItem(sbInfo.serviceBusName,
     sbInfo.connectionString,
     TreeItemCollapsibleState.Collapsed,
+    isConnected,
     sbInfo.queues,
     sbInfo.topics)
+}
+
+export const mapUnconnectedSbToDep = (name: string, connectionString: string): ServiceBusItem => {
+  return new ServiceBusItem(name,
+    connectionString,
+    TreeItemCollapsibleState.None,
+    false)
 }
 
 export const mapQueueToDep = (queue: QueueRuntimeProperties, connectionString: string): QueueItem => {

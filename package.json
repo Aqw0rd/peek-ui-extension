@@ -15,7 +15,7 @@
     "viewsContainers": {
 			"activitybar": [
 				{
-					"id": "package-explorer",
+					"id": "servicebus-explorer",
 					"title": "Peek",
 					"icon": "media/dep.svg"
 				}
@@ -24,11 +24,12 @@
     "viewsWelcome": [
       {
         "view": "anho.peek-ui",
-        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:anho.peek-ui.addConnection)"
+        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:anho.peek-ui.addConnection)",
+        "when": "anho.peek-ui:isInitialized == true"
       }
     ],
     "views": {
-      "package-explorer": [
+      "servicebus-explorer": [
         {
           "id": "anho.peek-ui",
           "name": "Peek",
@@ -49,6 +50,11 @@
 					"light": "resources/light/refresh.svg",
 					"dark": "resources/dark/refresh.svg"
 				}
+      },
+      {
+        "command": "anho.peek-ui.connect",
+        "title": "Connect",
+				"icon": "$(debug-disconnect)"
       },
       {
         "command": "anho.peek-ui.transferDeadletterAll",
@@ -74,7 +80,12 @@
       "view/item/context": [
         {
           "command": "anho.peek-ui.refresh",
-          "when": "view == anho.peek-ui",
+          "when": "view == anho.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency')",
+          "group": "inline"
+        },
+        {
+          "command": "anho.peek-ui.connect",
+          "when": "view == anho.peek-ui && viewItem == 'disconnectedSbItem'",
           "group": "inline"
         },
         {
