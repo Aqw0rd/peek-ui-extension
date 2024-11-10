@@ -137,7 +137,6 @@ export class MessagesWebView {
 
           <script>
               function openTab(btn, tabName) {
-                  console.log("openTab", tabName);
                   // deactivate all panels
                   const panels = document.getElementsByClassName("panel");
                   for (i = 0; i < panels.length; i++) {

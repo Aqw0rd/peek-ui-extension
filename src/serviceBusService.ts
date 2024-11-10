@@ -89,7 +89,6 @@ export const peekQueueMessages = async (connectionString: string, queue: string,
 
   const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
   const deadletter = await peekMessages(dlReceiver, dlAmount)
-  console.log('deadletter', deadletter.length)
 
   client.close()
   return { messages, deadletter }
@@ -132,7 +131,6 @@ export const purgeQueueDeadLetter = async (connectionString: string, queue: stri
 }
 
 export const transferQueueDl = async (connectionString: string, queue: string): Promise<void> => {
-  console.log('transferQueueDl')
   const client = new ServiceBusClient(connectionString)
   const sender = client.createSender(queue)
 
@@ -183,7 +181,6 @@ const completeMessages = async (receiver: ServiceBusReceiver) => {
 
 const peekMessages = async (receiver: ServiceBusReceiver, amount: number) => {
   try {
-    console.log('peeking', amount)
     return amount > 0 ? await receiver.peekMessages(amount) : []
   }
   finally {
@@ -195,11 +192,8 @@ const transferMessages = async (receiver: ServiceBusReceiver, sender: ServiceBus
   try {
     let messages
     do {
-      console.log('receiving 10')
       messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 500 })
-      console.log('received', messages.length)
       if (messages.length > 0) {
-        console.log('sending', messages.length)
         const msgsToSend = messages.map(createMessageFromDeadletter)
         await sender.sendMessages(msgsToSend)
         for (const message of messages) {
@@ -209,7 +203,6 @@ const transferMessages = async (receiver: ServiceBusReceiver, sender: ServiceBus
     } while (messages.length > 0)
   }
   finally {
-    console.log('closing')
     await receiver.close()
     await sender.close()
   }

@@ -35,7 +35,6 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
   }
 
   getTreeItem(element: SbDependencyBase): vscode.TreeItem | Thenable<vscode.TreeItem> {
-    console.log('getting child', element.label)
     return element
   }
 
