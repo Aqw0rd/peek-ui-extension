@@ -17,7 +17,7 @@
 				{
 					"id": "servicebus-explorer",
 					"title": "Peek",
-					"icon": "media/dep.svg"
+					"icon": "media/PeekUi.svg"
 				}
 			]
 		},
@@ -33,7 +33,7 @@
         {
           "id": "anho.peek-ui",
           "name": "Peek",
-					"icon": "media/dep.svg",
+					"icon": "media/PeekUi.svg",
 					"contextualTitle": "Servicebus Explorer"
         }
       ]
@@ -46,10 +46,7 @@
       {
         "command": "anho.peek-ui.refresh",
         "title": "Refresh",
-				"icon": {
-					"light": "resources/light/refresh.svg",
-					"dark": "resources/dark/refresh.svg"
-				}
+				"icon": "$(refresh)"
       },
       {
         "command": "anho.peek-ui.connect",
@@ -80,7 +77,7 @@
       "view/item/context": [
         {
           "command": "anho.peek-ui.refresh",
-          "when": "view == anho.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency')",
+          "when": "view == anho.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
           "group": "inline"
         },
         {
@@ -90,17 +87,17 @@
         },
         {
           "command": "anho.peek-ui.transferDeadletterAll",
-          "when": "view == anho.peek-ui",
+          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
           "group": "group1"
         },
         {
           "command": "anho.peek-ui.purgeMessages",
-          "when": "view == anho.peek-ui",
+          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
         },
         {
           "command": "anho.peek-ui.purgeDeadletter",
-          "when": "view == anho.peek-ui",
+          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
         }
       ]

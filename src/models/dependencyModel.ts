@@ -93,7 +93,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     }
   }
 
-  contextValue = 'childDependency'
+  contextValue = 'interactableDependency'
   iconPath = new vscode.ThemeIcon('database')
 
   getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
@@ -190,7 +190,7 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     }
   }
 
-  contextValue = 'childDependency'
+  contextValue = 'interactableDependency'
   iconPath = new vscode.ThemeIcon('database')
 
   getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
