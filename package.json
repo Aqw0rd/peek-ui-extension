@@ -3,6 +3,10 @@
   "displayName": "Peek",
   "description": "Servicebus tool",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aqw0rd/peek-ui-extension"
+  },
   "engines": {
     "vscode": "^1.94.0"
   },
@@ -15,7 +19,7 @@
     "viewsContainers": {
 			"activitybar": [
 				{
-					"id": "servicebus-explorer",
+					"id": "anho-peekui-servicebus-explorer",
 					"title": "Peek",
 					"icon": "media/PeekUi.svg"
 				}
@@ -29,7 +33,7 @@
       }
     ],
     "views": {
-      "servicebus-explorer": [
+      "anho-peekui-servicebus-explorer": [
         {
           "id": "anho.peek-ui",
           "name": "Peek",

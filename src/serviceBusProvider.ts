@@ -42,7 +42,7 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
     if (!element) {
       const sbItems = this.state.get<IServiceBusItem[]>('anho.peek-ui.state', [])
       const deps = sbItems.map(item => mapUnconnectedSbToDep(item.name, item.connectionString))
-      vscode.commands.executeCommand('setContext', 'anho.peek-ui:isInitialized', false)
+      vscode.commands.executeCommand('setContext', 'anho.peek-ui:isInitialized', true)
       return deps.flat()
     }
 
