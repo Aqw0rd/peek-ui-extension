@@ -8,6 +8,19 @@ export class MessagesWebView {
 
   constructor(private dependency: SbDependencyBase, private messagesDetails: ServiceBusMessageDetails) {}
 
+  public reveal() {
+    if (this.panel?.visible === false) {
+      this.panel.reveal()
+    }
+  }
+
+  public update(messagesDetails: ServiceBusMessageDetails) {
+    if (this.panel?.visible) {
+      this.messagesDetails = messagesDetails
+      this.panel.webview.html = this.getWebviewContent()
+    }
+  }
+
   public show() {
     this.panel = vscode.window.createWebviewPanel(
       'messages',
@@ -15,7 +28,7 @@ export class MessagesWebView {
       vscode.ViewColumn.One,
       {
         enableScripts: true,
-        retainContextWhenHidden: true,
+        retainContextWhenHidden: false,
       },
     )
 

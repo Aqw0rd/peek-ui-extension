@@ -1,4 +1,5 @@
 import { ServiceBusProvider } from '../serviceBusProvider'
+import { MessagesWebView } from '../views/messagesWebView'
 
 export interface IInteractableItem {
   show(): Promise<void>

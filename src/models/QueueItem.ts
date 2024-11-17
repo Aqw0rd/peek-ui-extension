@@ -22,10 +22,12 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
       title: '',
       arguments: [this],
     }
+    this.view = undefined
   }
 
   contextValue = 'interactableDependency'
   iconPath = new vscode.ThemeIcon('database')
+  view: MessagesWebView | undefined
 
   getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
 
@@ -34,6 +36,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
     const dep = mapQueueToDep(queue, this.connectionString)
     this.update(dep)
+    await this.updateView()
     provider.refresh(this)
   }
 
@@ -42,6 +45,13 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     this.deadLetterMessageCount = item.deadLetterMessageCount
     this.description = item.getDescription()
     this.iconPath = new vscode.ThemeIcon('database')
+  }
+
+  updateView = async () => {
+    if (this.view) {
+      const messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      this.view.update(messagesDetails)
+    }
   }
 
   transfer = async (provider: ServiceBusProvider) => {
@@ -60,10 +70,20 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
   }
 
   show = async () => {
-    if (this.activeMessageCount < 1 && this.deadLetterMessageCount < 1) {
+    if (this.view) {
+      this.view.reveal()
       return
     }
-    const messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
-    return new MessagesWebView(this, messagesDetails).show()
+
+    let messagesDetails
+    if (this.activeMessageCount < 1 && this.deadLetterMessageCount < 1) {
+      messagesDetails = { messages: [], deadletter: [] }
+    }
+    else {
+      messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+    }
+
+    this.view = new MessagesWebView(this, messagesDetails)
+    this.view.show()
   }
 }
