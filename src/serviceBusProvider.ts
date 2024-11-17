@@ -1,8 +1,10 @@
 import * as vscode from 'vscode'
-import * as service from './serviceBusService'
-import { IServiceBusItem } from './serviceBusItem'
-import { SbDependencyBase, TopicItem, ServiceBusItem } from './models/dependencyModel'
-import { mapQueueToDep, mapSbToDep, mapSubscriptionToDep, mapTopicToDep, mapUnconnectedSbToDep } from './models/dependencyMapper'
+import * as service from './utils/serviceBusService'
+import { IServiceBusItem } from './interfaces/IServiceBusItem'
+import { mapQueueToDep, mapSubscriptionToDep, mapTopicToDep, mapUnconnectedSbToDep } from './utils/dependencyMapper'
+import { SbDependencyBase } from './models/SbDependencyBase'
+import { ServiceBusItem } from './models/ServiceBusItem'
+import { TopicItem } from './models/TopicItem'
 
 export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyBase> {
   private _onDidChangeTreeData: vscode.EventEmitter<SbDependencyBase | undefined | void> = new vscode.EventEmitter<SbDependencyBase | undefined | void>()

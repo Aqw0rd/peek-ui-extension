@@ -8,7 +8,7 @@ import type {
   ServiceBusReceivedMessage,
   ServiceBusMessage,
 } from '@azure/service-bus'
-import type { ServiceBusInfo, ServiceBusMessageDetails, TopicCustomProperties } from './ServiceBusInfo'
+import type { ServiceBusInfo, ServiceBusMessageDetails, TopicCustomProperties } from '../interfaces/ServiceBusInfo'
 
 import { ServiceBusAdministrationClient, ServiceBusClient } from '@azure/service-bus'
 

@@ -1,7 +1,7 @@
 import vscode from 'vscode'
-import { ServiceBusMessageDetails } from './ServiceBusInfo'
+import { ServiceBusMessageDetails } from '../interfaces/ServiceBusInfo'
 import { ServiceBusReceivedMessage } from '@azure/service-bus'
-import { SbDependencyBase } from './models/dependencyModel'
+import { SbDependencyBase } from '../models/SbDependencyBase'
 
 export class MessagesWebView {
   private panel: vscode.WebviewPanel | undefined

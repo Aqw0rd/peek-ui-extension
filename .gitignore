@@ -24,3 +24,4 @@ SHASUMS256.txt
 compile_commands.json
 .envrc
 out/
+*.vsix

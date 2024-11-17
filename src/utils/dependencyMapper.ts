@@ -1,7 +1,10 @@
 import { TreeItemCollapsibleState } from 'vscode'
-import { ServiceBusInfo, TopicCustomProperties } from '../ServiceBusInfo'
-import { QueueItem, ServiceBusItem, SubscriptionItem, TopicItem } from './dependencyModel'
+import { ServiceBusInfo, TopicCustomProperties } from '../interfaces/ServiceBusInfo'
 import { QueueRuntimeProperties, SubscriptionRuntimeProperties } from '@azure/service-bus'
+import { QueueItem } from '../models/QueueItem'
+import { ServiceBusItem } from '../models/ServiceBusItem'
+import { SubscriptionItem } from '../models/SubscriptionItem'
+import { TopicItem } from '../models/TopicItem'
 
 export const mapSbToDep = (sbInfo: ServiceBusInfo, isConnected: boolean): ServiceBusItem => {
   return new ServiceBusItem(sbInfo.serviceBusName,

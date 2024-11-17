@@ -1,11 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode'
 import { ServiceBusProvider } from './serviceBusProvider'
-import { IInteractableItem, SbDependencyBase, ServiceBusItem } from './models/dependencyModel'
+import { IInteractableItem } from './interfaces/IInteractableItem'
+import { SbDependencyBase } from './models/SbDependencyBase'
+import { ServiceBusItem } from './models/ServiceBusItem'
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   const servicebusProvider = new ServiceBusProvider(context)
   vscode.window.registerTreeDataProvider('anho.peek-ui', servicebusProvider)
@@ -32,5 +30,4 @@ export function activate(context: vscode.ExtensionContext) {
   })
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }

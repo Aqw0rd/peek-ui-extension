@@ -115,8 +115,10 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "@azure/service-bus": "^7.9.0"
+  },
   "devDependencies": {
-    "@azure/service-bus": "^7.9.0",
     "@stylistic/eslint-plugin": "^2.9.0",
     "@types/mocha": "^10.0.8",
     "@types/node": "20.x",
