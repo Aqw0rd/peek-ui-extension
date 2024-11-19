@@ -3,6 +3,8 @@
   "displayName": "Peek",
   "description": "Servicebus tool",
   "version": "0.0.1",
+  "icon": "media/peekui_logo.png",
+  "publisher": "anho",
   "repository": {
     "type": "git",
     "url": "https://github.com/Aqw0rd/peek-ui-extension"
@@ -21,7 +23,7 @@
 				{
 					"id": "anho-peekui-servicebus-explorer",
 					"title": "Peek",
-					"icon": "media/PeekUi.svg"
+					"icon": "media/peekui_icon.svg"
 				}
 			]
 		},
@@ -37,7 +39,7 @@
         {
           "id": "anho.peek-ui",
           "name": "Peek",
-					"icon": "media/PeekUi.svg",
+					"icon": "media/peekui_icon.svg",
 					"contextualTitle": "Servicebus Explorer"
         }
       ]

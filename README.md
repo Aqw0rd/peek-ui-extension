@@ -8,9 +8,9 @@ Describe specific features of your extension including screenshots of your exten
 
 For example if there is an image subfolder under your extension project workspace:
 
-\!\[Peeking messages\]\(images/peek.png\)
+[Peeking messages](images/peek.png)
 
-\!\[Manage\]\(images/transfer.png\)
+[Manage](images/transfer.png)
 
 ## Requirements
 
