@@ -18,7 +18,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     this.tooltip = `${this.label}}`
     this.description = this.getDescription()
     this.command = {
-      command: 'anho.peek-ui.showMessages',
+      command: 'horgen.peek-ui.showMessages',
       title: '',
       arguments: [this],
     }

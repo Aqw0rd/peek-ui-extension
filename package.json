@@ -4,7 +4,7 @@
   "description": "Servicebus tool",
   "version": "0.0.1",
   "icon": "media/peekui_logo.png",
-  "publisher": "anho",
+  "publisher": "horgen",
   "repository": {
     "type": "git",
     "url": "https://github.com/Aqw0rd/peek-ui-extension"
@@ -21,7 +21,7 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "anho-peekui-servicebus-explorer",
+          "id": "horgen-peekui-servicebus-explorer",
           "title": "Peek",
           "icon": "media/peekui_icon.svg"
         }
@@ -29,15 +29,15 @@
     },
     "viewsWelcome": [
       {
-        "view": "anho.peek-ui",
-        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:anho.peek-ui.addConnection)",
-        "when": "anho.peek-ui:isInitialized == true"
+        "view": "horgen.peek-ui",
+        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:horgen.peek-ui.addConnection)",
+        "when": "horgen.peek-ui:isInitialized == true"
       }
     ],
     "views": {
-      "anho-peekui-servicebus-explorer": [
+      "horgen-peekui-servicebus-explorer": [
         {
-          "id": "anho.peek-ui",
+          "id": "horgen.peek-ui",
           "name": "Peek",
           "icon": "media/peekui_icon.svg",
           "contextualTitle": "Servicebus Explorer"
@@ -46,64 +46,64 @@
     },
     "commands": [
       {
-        "command": "anho.peek-ui.addConnection",
+        "command": "horgen.peek-ui.addConnection",
         "title": "Add Servicebus Connectionstring"
       },
       {
-        "command": "anho.peek-ui.refresh",
+        "command": "horgen.peek-ui.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "anho.peek-ui.connect",
+        "command": "horgen.peek-ui.connect",
         "title": "Connect",
         "icon": "$(debug-disconnect)"
       },
       {
-        "command": "anho.peek-ui.transferDeadletterAll",
+        "command": "horgen.peek-ui.transferDeadletterAll",
         "title": "Transfer Deadletter (All)"
       },
       {
-        "command": "anho.peek-ui.purgeMessages",
+        "command": "horgen.peek-ui.purgeMessages",
         "title": "Purge Messages"
       },
       {
-        "command": "anho.peek-ui.purgeDeadletter",
+        "command": "horgen.peek-ui.purgeDeadletter",
         "title": "Purge Deadletter"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "anho.peek-ui.addConnection",
-          "when": "view == anho.peek-ui",
+          "command": "horgen.peek-ui.addConnection",
+          "when": "view == horgen.peek-ui",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "anho.peek-ui.refresh",
-          "when": "view == anho.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
+          "command": "horgen.peek-ui.refresh",
+          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
           "group": "inline"
         },
         {
-          "command": "anho.peek-ui.connect",
-          "when": "view == anho.peek-ui && viewItem == 'disconnectedSbItem'",
+          "command": "horgen.peek-ui.connect",
+          "when": "view == horgen.peek-ui && viewItem == 'disconnectedSbItem'",
           "group": "inline"
         },
         {
-          "command": "anho.peek-ui.transferDeadletterAll",
-          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
+          "command": "horgen.peek-ui.transferDeadletterAll",
+          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
           "group": "group1"
         },
         {
-          "command": "anho.peek-ui.purgeMessages",
-          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
+          "command": "horgen.peek-ui.purgeMessages",
+          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
         },
         {
-          "command": "anho.peek-ui.purgeDeadletter",
-          "when": "view == anho.peek-ui && viewItem == 'interactableDependency'",
+          "command": "horgen.peek-ui.purgeDeadletter",
+          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
         }
       ]

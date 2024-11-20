@@ -26,12 +26,12 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
         return
       }
       const sbInfo = await service.getServiceBusInfo(input)
-      const current = this.state.get<IServiceBusItem[]>('anho.peek-ui.state', [])
+      const current = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
       if (current.find(c => c.connectionString === sbInfo.connectionString)) {
         return
       }
       const updated = [...current, { connectionString: sbInfo.connectionString, name: sbInfo.serviceBusName }]
-      this.state.update('anho.peek-ui.state', updated)
+      this.state.update('horgen.peek-ui.state', updated)
       this.refresh()
     })
   }
@@ -42,9 +42,9 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
 
   async getChildren(element?: SbDependencyBase): Promise<SbDependencyBase[]> {
     if (!element) {
-      const sbItems = this.state.get<IServiceBusItem[]>('anho.peek-ui.state', [])
+      const sbItems = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
       const deps = sbItems.map(item => mapUnconnectedSbToDep(item.name, item.connectionString))
-      vscode.commands.executeCommand('setContext', 'anho.peek-ui:isInitialized', true)
+      vscode.commands.executeCommand('setContext', 'horgen.peek-ui:isInitialized', true)
       return deps.flat()
     }
 

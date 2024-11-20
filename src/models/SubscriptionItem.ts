@@ -19,7 +19,7 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     this.tooltip = `${this.label}}`
     this.description = this.getDescription()
     this.command = {
-      command: 'anho.peek-ui.showMessages',
+      command: 'horgen.peek-ui.showMessages',
       title: '',
       arguments: [this],
     }
