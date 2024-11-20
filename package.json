@@ -1,6 +1,6 @@
 {
-  "name": "peek",
-  "displayName": "Peek",
+  "name": "peek-ui",
+  "displayName": "Peek UI",
   "description": "Servicebus tool",
   "version": "0.0.1",
   "icon": "media/peekui_logo.png",
