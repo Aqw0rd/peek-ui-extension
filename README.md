@@ -4,9 +4,9 @@ PeekUI is a tool for inspecting, resubmitting and purge messages on Azure Servic
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
+- View all Queues, Topics & Subscriptions for a given Service Bus
+- Transfer from deadletter
+- Purge messages
 
 ![Peeking messages](images/peek.png)
 
@@ -25,6 +25,12 @@ None.
 None.
 
 ## Release Notes
+
+### 0.0.2
+
+- Fixed bug when re-opening closed webviews.
+- Adjusted refresh state when transferring/purging messages
+- Fixed possible infinite loop when transferring messages
 
 ### 0.0.1
 
