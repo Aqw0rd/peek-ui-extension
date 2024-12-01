@@ -4,7 +4,7 @@ import { ServiceBusReceivedMessage } from '@azure/service-bus'
 import { SbDependencyBase } from '../models/SbDependencyBase'
 
 export class MessagesWebView {
-  private panel: vscode.WebviewPanel | undefined
+  public panel: vscode.WebviewPanel | undefined
 
   constructor(private dependency: SbDependencyBase, private messagesDetails: ServiceBusMessageDetails) {}
 
