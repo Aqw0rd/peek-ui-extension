@@ -2,7 +2,7 @@
   "name": "peek-ui",
   "displayName": "Peek UI",
   "description": "Servicebus tool",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "media/peekui_logo.png",
   "publisher": "horgen",
   "repository": {
