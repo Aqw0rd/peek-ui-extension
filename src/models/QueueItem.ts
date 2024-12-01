@@ -55,16 +55,19 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
   }
 
   transfer = async (provider: ServiceBusProvider) => {
+    this.setLoading(provider)
     await service.transferQueueDl(this.connectionString, this.label)
     await this.refresh(provider)
   }
 
   purge = async (provider: ServiceBusProvider) => {
+    this.setLoading(provider)
     await service.purgeQueueMessages(this.connectionString, this.label)
     await this.refresh(provider)
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
+    this.setLoading(provider)
     await service.purgeQueueDeadLetter(this.connectionString, this.label)
     await this.refresh(provider)
   }

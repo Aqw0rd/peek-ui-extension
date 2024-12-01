@@ -166,7 +166,7 @@ const completeMessages = async (receiver: ServiceBusReceiver) => {
   try {
     let messages
     do {
-      messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 500 })
+      messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 150 })
       if (messages.length > 0) {
         for (const message of messages) {
           await receiver.completeMessage(message)
@@ -188,19 +188,29 @@ const peekMessages = async (receiver: ServiceBusReceiver, amount: number) => {
   }
 }
 
+const receiveAllMessages = async (receiver: ServiceBusReceiver) => {
+  let messages
+  let receivedMessages: ServiceBusReceivedMessage[] = []
+  do {
+    messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 150 })
+    if (messages.length > 0) {
+      receivedMessages = receivedMessages.concat(messages)
+    }
+  } while (messages.length > 0)
+  return receivedMessages
+}
+
 const transferMessages = async (receiver: ServiceBusReceiver, sender: ServiceBusSender, amount?: number) => {
   try {
-    let messages
-    do {
-      messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 500 })
-      if (messages.length > 0) {
-        const msgsToSend = messages.map(createMessageFromDeadletter)
-        await sender.sendMessages(msgsToSend)
-        for (const message of messages) {
-          await receiver.completeMessage(message)
-        }
+    const receivedMessages = await receiveAllMessages(receiver)
+    while (receivedMessages.length > 0) {
+      const messages = receivedMessages.splice(0, 10)
+      const messagesToSend = messages.map(createMessageFromDeadletter)
+      await sender.sendMessages(messagesToSend)
+      for (const message of messages) {
+        await receiver.completeMessage(message)
       }
-    } while (messages.length > 0)
+    }
   }
   finally {
     await receiver.close()
