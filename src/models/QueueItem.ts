@@ -85,5 +85,8 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
 
     this.view = new MessagesWebView(this, messagesDetails)
     this.view.show()
+    this.view.panel?.onDidDispose(() => {
+      this.view = undefined
+    })
   }
 }

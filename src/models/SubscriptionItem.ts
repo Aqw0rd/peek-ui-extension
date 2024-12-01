@@ -86,5 +86,8 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
 
     this.view = new MessagesWebView(this, messagesDetails)
     this.view.show()
+    this.view.panel?.onDidDispose(() => {
+      this.view = undefined
+    })
   }
 }
