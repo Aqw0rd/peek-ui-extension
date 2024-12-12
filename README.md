@@ -26,6 +26,9 @@ None.
 
 ## Release Notes
 
+### 0.0.3
+- Fixed issue with opening subscriptions
+
 ### 0.0.2
 
 - Fixed bug when re-opening closed webviews.
