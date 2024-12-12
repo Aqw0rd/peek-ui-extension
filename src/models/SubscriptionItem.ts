@@ -50,7 +50,7 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
 
   updateView = async () => {
     if (this.view) {
-      const messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      const messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
       this.view.update(messagesDetails)
     }
   }
@@ -84,7 +84,7 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
       messagesDetails = { messages: [], deadletter: [] }
     }
     else {
-      messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
     }
 
     this.view = new MessagesWebView(this, messagesDetails)
