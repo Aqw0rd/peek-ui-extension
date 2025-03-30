@@ -57,19 +57,25 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
 
   transfer = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
+      await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label, progress, token)
+    })
     await this.refresh(provider)
   }
 
   purge = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
+      await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label, progress, token)
+    })
     await this.refresh(provider)
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
+    await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
+      await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label, progress, token)
+    })
     await this.refresh(provider)
   }
 
