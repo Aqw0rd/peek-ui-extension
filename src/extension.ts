@@ -6,28 +6,18 @@ import { ServiceBusItem } from './models/ServiceBusItem'
 
 export function activate(context: vscode.ExtensionContext) {
   const servicebusProvider = new ServiceBusProvider(context)
-  vscode.window.registerTreeDataProvider('horgen.peek-ui', servicebusProvider)
-  vscode.commands.registerCommand('horgen.peek-ui.addConnection', () => {
-    servicebusProvider.addConnection()
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.connect', (node: ServiceBusItem) => {
-    node.connect(servicebusProvider)
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.refresh', (node: SbDependencyBase) => {
-    node.refresh(servicebusProvider)
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.showMessages', async (node: IInteractableItem) => {
-    await node.show()
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.transferDeadletterAll', async (node: IInteractableItem) => {
-    await node.transfer(servicebusProvider)
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.purgeMessages', async (node: IInteractableItem) => {
-    await node.purge(servicebusProvider)
-  })
-  vscode.commands.registerCommand('horgen.peek-ui.purgeDeadletter', async (node: IInteractableItem) => {
-    await node.purgeDl(servicebusProvider)
-  })
+  context.subscriptions.push(
+    servicebusProvider,
+    vscode.window.registerTreeDataProvider('horgen.peek-ui', servicebusProvider),
+    vscode.commands.registerCommand('horgen.peek-ui.addConnection', () => servicebusProvider.addConnection()),
+    vscode.commands.registerCommand('horgen.peek-ui.removeConnection', (node?: ServiceBusItem) => servicebusProvider.removeConnection(node)),
+    vscode.commands.registerCommand('horgen.peek-ui.connect', (node: ServiceBusItem) => node.connect(servicebusProvider)),
+    vscode.commands.registerCommand('horgen.peek-ui.refresh', (node: SbDependencyBase) => node.refresh(servicebusProvider)),
+    vscode.commands.registerCommand('horgen.peek-ui.showMessages', (node: IInteractableItem) => node.show()),
+    vscode.commands.registerCommand('horgen.peek-ui.transferDeadletterAll', (node: IInteractableItem) => node.transfer(servicebusProvider)),
+    vscode.commands.registerCommand('horgen.peek-ui.purgeMessages', (node: IInteractableItem) => node.purge(servicebusProvider)),
+    vscode.commands.registerCommand('horgen.peek-ui.purgeDeadletter', (node: IInteractableItem) => node.purgeDl(servicebusProvider)),
+  )
 }
 
 export function deactivate() { }

@@ -5,6 +5,7 @@ import { ServiceBusProvider } from '../serviceBusProvider'
 import { mapSubscriptionToDep } from '../utils/dependencyMapper'
 import { IInteractableItem } from '../interfaces/IInteractableItem'
 import { SbDependencyBase } from './SbDependencyBase'
+import { confirmDestructive, errorMessage } from '../utils/ui'
 
 export class SubscriptionItem extends SbDependencyBase implements IInteractableItem {
   constructor(
@@ -16,7 +17,7 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
   ) {
     super(label, connectionString, vscode.TreeItemCollapsibleState.None)
 
-    this.tooltip = `${this.label}}`
+    this.tooltip = `${this.topicName}/${this.label}`
     this.description = this.getDescription()
     this.command = {
       command: 'horgen.peek-ui.showMessages',
@@ -34,11 +35,17 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
 
   refresh = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    const subscription = await service.getSubscriptionRuntimeProperties(this.connectionString, this.topicName, this.label)
-    const dep = mapSubscriptionToDep(subscription, this.connectionString)
-    this.update(dep)
-    await this.updateView()
-    provider.refresh(this)
+    try {
+      const subscription = await service.getSubscriptionRuntimeProperties(this.connectionString, this.topicName, this.label)
+      const dep = mapSubscriptionToDep(subscription, this.connectionString)
+      this.update(dep)
+      await this.updateView()
+      provider.refresh(this)
+    }
+    catch (err) {
+      this.clearLoading(provider)
+      vscode.window.showErrorMessage(`Failed to refresh subscription ${this.label}: ${errorMessage(err)}`)
+    }
   }
 
   update = (item: SubscriptionItem) => {
@@ -56,20 +63,44 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
   }
 
   transfer = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Transfer all deadletter messages on ${this.topicName}/${this.label} back to the topic?`, 'Transfer')) {
+      return
+    }
     this.setLoading(provider)
-    await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
+    try {
+      await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Transfer failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
   purge = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Permanently delete all messages on ${this.topicName}/${this.label}? This cannot be undone.`, 'Purge')) {
+      return
+    }
     this.setLoading(provider)
-    await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
+    try {
+      await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Purge failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Permanently delete all deadletter messages on ${this.topicName}/${this.label}? This cannot be undone.`, 'Purge deadletter')) {
+      return
+    }
     this.setLoading(provider)
-    await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
+    try {
+      await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Purge deadletter failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
@@ -84,7 +115,13 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
       messagesDetails = { messages: [], deadletter: [] }
     }
     else {
-      messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      try {
+        messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      }
+      catch (err) {
+        vscode.window.showErrorMessage(`Failed to peek messages on ${this.label}: ${errorMessage(err)}`)
+        return
+      }
     }
 
     this.view = new MessagesWebView(this, messagesDetails)

@@ -36,6 +36,8 @@ export class MessagesWebView {
   }
 
   private getWebviewContent(): string {
+    const nonce = generateNonce()
+    const cspSource = this.panel?.webview.cspSource ?? ''
     const messagesHtml = this.createTable(this.messagesDetails.messages)
     const deadLetterHtml = this.createTable(this.messagesDetails.deadletter)
 
@@ -44,6 +46,7 @@ export class MessagesWebView {
       <html lang="en">
       <head>
           <meta charset="UTF-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Messages</title>
           <style>
@@ -114,7 +117,7 @@ export class MessagesWebView {
                 }
 
                 &:nth-of-type(odd){
-                  background: #272727
+                  background: var(--vscode-list-inactiveSelectionBackground);
                 }
 
                 &:nth-of-type(odd):hover {
@@ -129,16 +132,19 @@ export class MessagesWebView {
               .cell {
                 padding: 6px 12px;
                 display: table-cell;
+                white-space: pre-wrap;
+                word-break: break-word;
+                vertical-align: top;
               }
           </style>
       </head>
       <body>
           <div class="tabs">
             <div class="labelgroup">
-              <button class="label active" id="tab-1" onclick="openTab('tab-1', 'messages-panel')">Messages</button>
-              <button class="label" id="tab-2" onclick="openTab('tab-2', 'deadletter-panel')">Deadletter</button>
+              <button class="label active" data-tab-btn="tab-1" data-tab-panel="messages-panel">Messages</button>
+              <button class="label" data-tab-btn="tab-2" data-tab-panel="deadletter-panel">Deadletter</button>
             </div>
-            
+
             <div class="panel active" id="messages-panel">
               ${messagesHtml}
             </div>
@@ -148,23 +154,22 @@ export class MessagesWebView {
             </div>
           </div>
 
-          <script>
-              function openTab(btn, tabName) {
-                  // deactivate all panels
+          <script nonce="${nonce}">
+              function openTab(btnId, panelId) {
                   const panels = document.getElementsByClassName("panel");
-                  for (i = 0; i < panels.length; i++) {
+                  for (let i = 0; i < panels.length; i++) {
                       panels[i].className = panels[i].className.replace(" active", "");
                   }
-
-                  // deactivate all tabs
                   const tabButtons = document.getElementsByClassName("label");
-                  for (i = 0; i < tabButtons.length; i++) {
+                  for (let i = 0; i < tabButtons.length; i++) {
                       tabButtons[i].className = tabButtons[i].className.replace(" active", "");
                   }
-                  
-                  document.getElementById(tabName).className += " active";
-                  document.getElementById(btn).className += " active";
+                  document.getElementById(panelId).className += " active";
+                  document.querySelector('[data-tab-btn="' + btnId + '"]').className += " active";
               }
+              document.querySelectorAll('[data-tab-btn]').forEach(btn => {
+                  btn.addEventListener('click', () => openTab(btn.dataset.tabBtn, btn.dataset.tabPanel));
+              });
           </script>
       </body>
       </html>
@@ -172,15 +177,16 @@ export class MessagesWebView {
   }
 
   private createTable(messages: ServiceBusReceivedMessage[]): string {
-    const rows = messages.map(m =>
-      `<div class="row">
-          <div class="cell">${m.messageId}</div>
-          <div class="cell">${JSON.stringify(m.body)}</div>
-          <div class="cell">${m.enqueuedTimeUtc?.toISOString()}</div>
-          <div class="cell">${m.scheduledEnqueueTimeUtc?.toISOString()}</div>
-          <div class="cell">${m.deliveryCount}</div>
-        </div>`,
-    )
+    const rows = messages.map((m) => {
+      const body = safeStringifyBody(m.body)
+      return `<div class="row">
+          <div class="cell">${escapeHtml(m.messageId?.toString() ?? '')}</div>
+          <div class="cell">${escapeHtml(body)}</div>
+          <div class="cell">${escapeHtml(m.enqueuedTimeUtc?.toISOString() ?? '')}</div>
+          <div class="cell">${escapeHtml(m.scheduledEnqueueTimeUtc?.toISOString() ?? '')}</div>
+          <div class="cell">${escapeHtml(String(m.deliveryCount ?? ''))}</div>
+        </div>`
+    })
 
     return `<div class="table">
         <div class="row header">
@@ -193,4 +199,39 @@ export class MessagesWebView {
         ${rows.join('')}
       </div>`
   }
+}
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const safeStringifyBody = (body: unknown): string => {
+  if (body === null || body === undefined) {
+    return ''
+  }
+  if (typeof body === 'string') {
+    return body
+  }
+  if (Buffer.isBuffer(body)) {
+    return body.toString('utf8')
+  }
+  try {
+    return JSON.stringify(body)
+  }
+  catch {
+    return String(body)
+  }
+}
+
+const generateNonce = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let out = ''
+  for (let i = 0; i < 32; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return out
 }

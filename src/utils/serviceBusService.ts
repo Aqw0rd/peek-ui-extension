@@ -12,6 +12,11 @@ import type { ServiceBusInfo, ServiceBusMessageDetails, TopicCustomProperties } 
 
 import { ServiceBusAdministrationClient, ServiceBusClient } from '@azure/service-bus'
 
+const RECEIVE_BATCH = 32
+const RECEIVE_WAIT_MS = 5000
+const EMPTY_ROUNDS_UNTIL_DONE = 2
+const PEEK_MAX = 250
+
 export const getServiceBusInfo = async (connectionString: string): Promise<ServiceBusInfo> => {
   const client = new ServiceBusAdministrationClient(connectionString)
 
@@ -76,103 +81,126 @@ export const peekQueueMessages = async (connectionString: string, queue: string,
   if (amount < 1 && dlAmount < 1) {
     return { messages: [], deadletter: [] }
   }
-  if (amount > 32) {
-    amount = 32
-  }
-  if (dlAmount > 32) {
-    dlAmount = 32
-  }
+  amount = Math.min(amount, PEEK_MAX)
+  dlAmount = Math.min(dlAmount, PEEK_MAX)
 
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' })
-  const messages = await peekMessages(receiver, amount)
+  try {
+    const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' })
+    const messages = await peekMessages(receiver, amount)
 
-  const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-  const deadletter = await peekMessages(dlReceiver, dlAmount)
+    const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    const deadletter = await peekMessages(dlReceiver, dlAmount)
 
-  client.close()
-  return { messages, deadletter }
+    return { messages, deadletter }
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const peekSubscriptionMessages = async (connectionString: string, topic: string, subscription: string, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
   if (amount < 1 && dlAmount < 1) {
     return { messages: [], deadletter: [] }
   }
-  if (amount > 32) {
-    amount = 32
-  }
-  if (dlAmount > 32) {
-    dlAmount = 32
-  }
+  amount = Math.min(amount, PEEK_MAX)
+  dlAmount = Math.min(dlAmount, PEEK_MAX)
 
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
-  const messages = await peekMessages(receiver, amount)
+  try {
+    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
+    const messages = await peekMessages(receiver, amount)
 
-  const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-  const deadletter = await peekMessages(dlReceiver, dlAmount)
+    const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    const deadletter = await peekMessages(dlReceiver, dlAmount)
 
-  client.close()
-  return { messages, deadletter }
+    return { messages, deadletter }
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const purgeQueueMessages = async (connectionString: string, queue: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' }) // use peekLock to avoid losing messages, if transferring fails
-  await completeMessages(receiver)
-  client.close()
+  try {
+    const receiver = client.createReceiver(queue, { receiveMode: 'receiveAndDelete' })
+    await drainMessages(receiver)
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const purgeQueueDeadLetter = async (connectionString: string, queue: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(`${queue}/$deadletterqueue`, { receiveMode: 'peekLock' })
-  await completeMessages(receiver)
-  client.close()
+  try {
+    const receiver = client.createReceiver(queue, { receiveMode: 'receiveAndDelete', subQueueType: 'deadLetter' })
+    await drainMessages(receiver)
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const transferQueueDl = async (connectionString: string, queue: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const sender = client.createSender(queue)
-
-  const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-  await transferMessages(dlReceiver, sender)
-  client.close()
+  try {
+    const sender = client.createSender(queue)
+    const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    await streamTransfer(dlReceiver, sender)
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const purgeSubscriptionMessages = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
-  await completeMessages(receiver)
-  client.close()
+  try {
+    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'receiveAndDelete' })
+    await drainMessages(receiver)
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const purgeSubscriptionDeadletter = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-  await completeMessages(receiver)
-  client.close()
+  try {
+    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'receiveAndDelete', subQueueType: 'deadLetter' })
+    await drainMessages(receiver)
+  }
+  finally {
+    await client.close()
+  }
 }
 
 export const transferSubscriptionDl = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
   const client = new ServiceBusClient(connectionString)
-  const sender = client.createSender(topic)
-
-  const dlReceiver = client.createReceiver(`${topic}/Subscriptions/${subscription}/$deadletterqueue`, { receiveMode: 'peekLock' })
-  await transferMessages(dlReceiver, sender)
-  client.close()
+  try {
+    const sender = client.createSender(topic)
+    const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    await streamTransfer(dlReceiver, sender)
+  }
+  finally {
+    await client.close()
+  }
 }
 
-const completeMessages = async (receiver: ServiceBusReceiver) => {
+const drainMessages = async (receiver: ServiceBusReceiver) => {
   try {
-    let messages
-    do {
-      messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 150 })
-      if (messages.length > 0) {
-        for (const message of messages) {
-          await receiver.completeMessage(message)
-        }
+    let emptyRounds = 0
+    while (emptyRounds < EMPTY_ROUNDS_UNTIL_DONE) {
+      const messages = await receiver.receiveMessages(RECEIVE_BATCH, { maxWaitTimeInMs: RECEIVE_WAIT_MS })
+      if (messages.length === 0) {
+        emptyRounds++
       }
-    } while (messages.length > 0)
+      else {
+        emptyRounds = 0
+      }
+    }
   }
   finally {
     await receiver.close()
@@ -188,39 +216,43 @@ const peekMessages = async (receiver: ServiceBusReceiver, amount: number) => {
   }
 }
 
-const receiveAllMessages = async (receiver: ServiceBusReceiver) => {
-  let messages
-  let receivedMessages: ServiceBusReceivedMessage[] = []
-  do {
-    messages = await receiver.receiveMessages(10, { maxWaitTimeInMs: 150 })
-    if (messages.length > 0) {
-      receivedMessages = receivedMessages.concat(messages)
-    }
-  } while (messages.length > 0)
-  return receivedMessages
-}
-
-const transferMessages = async (receiver: ServiceBusReceiver, sender: ServiceBusSender, amount?: number) => {
+const streamTransfer = async (receiver: ServiceBusReceiver, sender: ServiceBusSender) => {
   try {
-    const receivedMessages = await receiveAllMessages(receiver)
-    while (receivedMessages.length > 0) {
-      const messages = receivedMessages.splice(0, 10)
-      const messagesToSend = messages.map(createMessageFromDeadletter)
-      await sender.sendMessages(messagesToSend)
+    let emptyRounds = 0
+    while (emptyRounds < EMPTY_ROUNDS_UNTIL_DONE) {
+      const messages = await receiver.receiveMessages(RECEIVE_BATCH, { maxWaitTimeInMs: RECEIVE_WAIT_MS })
+      if (messages.length === 0) {
+        emptyRounds++
+        continue
+      }
+      emptyRounds = 0
+      const toSend = messages.map(cloneMessage)
+      await sender.sendMessages(toSend)
       for (const message of messages) {
         await receiver.completeMessage(message)
       }
     }
   }
   finally {
-    await receiver.close()
     await sender.close()
+    await receiver.close()
   }
 }
 
-const createMessageFromDeadletter = (message: ServiceBusReceivedMessage): ServiceBusMessage => {
+const cloneMessage = (message: ServiceBusReceivedMessage): ServiceBusMessage => {
   return {
     body: message.body,
     contentType: message.contentType,
+    correlationId: message.correlationId,
+    messageId: message.messageId,
+    subject: message.subject,
+    replyTo: message.replyTo,
+    replyToSessionId: message.replyToSessionId,
+    to: message.to,
+    sessionId: message.sessionId,
+    partitionKey: message.partitionKey,
+    timeToLive: message.timeToLive,
+    scheduledEnqueueTimeUtc: message.scheduledEnqueueTimeUtc,
+    applicationProperties: message.applicationProperties,
   }
 }

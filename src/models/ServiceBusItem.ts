@@ -5,14 +5,15 @@ import { TopicCustomProperties } from '../interfaces/ServiceBusInfo'
 import { mapSbToDep } from '../utils/dependencyMapper'
 import { SbDependencyBase } from './SbDependencyBase'
 import * as service from '../utils/serviceBusService'
+import { errorMessage } from '../utils/ui'
 
 export class ServiceBusItem extends SbDependencyBase {
   constructor(
-    public readonly label: string, // name of sb/queue/topic/subscription
+    public readonly label: string,
     public readonly connectionString: string,
     public collapsibleState: vscode.TreeItemCollapsibleState,
     public isConnected: boolean,
-    public queues?: QueueRuntimeProperties[], // queue when sb, subscription when topic
+    public queues?: QueueRuntimeProperties[],
     public topics?: TopicCustomProperties[],
   ) {
     super(label, connectionString, isConnected ? collapsibleState : vscode.TreeItemCollapsibleState.None)
@@ -24,15 +25,21 @@ export class ServiceBusItem extends SbDependencyBase {
   iconPath = new vscode.ThemeIcon('server-environment')
 
   connect(provider: ServiceBusProvider) {
-    this.refresh(provider)
+    return this.refresh(provider)
   }
 
   refresh = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    const sbInfo = await service.getServiceBusInfo(this.connectionString)
-    const dep = mapSbToDep(sbInfo, true)
-    this.update(dep)
-    provider.refresh(this)
+    try {
+      const sbInfo = await service.getServiceBusInfo(this.connectionString)
+      const dep = mapSbToDep(sbInfo, true)
+      this.update(dep)
+      provider.refresh(this)
+    }
+    catch (err) {
+      this.clearLoading(provider)
+      vscode.window.showErrorMessage(`Failed to connect to ${this.label}: ${errorMessage(err)}`)
+    }
   }
 
   update = (item: ServiceBusItem) => {

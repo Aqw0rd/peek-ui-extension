@@ -1,39 +1,71 @@
 import * as vscode from 'vscode'
 import * as service from './utils/serviceBusService'
-import { IServiceBusItem } from './interfaces/IServiceBusItem'
 import { mapQueueToDep, mapSubscriptionToDep, mapTopicToDep, mapUnconnectedSbToDep } from './utils/dependencyMapper'
 import { SbDependencyBase } from './models/SbDependencyBase'
 import { ServiceBusItem } from './models/ServiceBusItem'
 import { TopicItem } from './models/TopicItem'
+import { confirmDestructive, errorMessage } from './utils/ui'
 
-export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyBase> {
+export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyBase>, vscode.Disposable {
   private _onDidChangeTreeData: vscode.EventEmitter<SbDependencyBase | undefined | void> = new vscode.EventEmitter<SbDependencyBase | undefined | void>()
   readonly onDidChangeTreeData: vscode.Event<SbDependencyBase | undefined | void> = this._onDidChangeTreeData.event
 
-  state: vscode.Memento
+  secrets: vscode.SecretStorage
 
   constructor(private context: vscode.ExtensionContext) {
-    this.state = context.globalState
+    this.secrets = context.secrets
+  }
+
+  dispose(): void {
+    this._onDidChangeTreeData.dispose()
   }
 
   refresh(item: SbDependencyBase | undefined | void): void {
     this._onDidChangeTreeData.fire(item)
   }
 
-  addConnection(): void {
-    vscode.window.showInputBox({ prompt: 'Servicebus connectionstring' }).then(async (input) => {
-      if (!input) {
-        return
-      }
-      const sbInfo = await service.getServiceBusInfo(input)
-      const current = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
-      if (current.find(c => c.connectionString === sbInfo.connectionString)) {
-        return
-      }
-      const updated = [...current, { connectionString: sbInfo.connectionString, name: sbInfo.serviceBusName }]
-      this.state.update('horgen.peek-ui.state', updated)
-      this.refresh()
+  async addConnection(): Promise<void> {
+    const input = await vscode.window.showInputBox({
+      prompt: 'Servicebus connectionstring',
+      password: true,
+      ignoreFocusOut: true,
     })
+    if (!input) {
+      return
+    }
+    try {
+      const sbInfo = await service.getServiceBusInfo(input)
+      const existing = await this.secrets.get(sbInfo.serviceBusName)
+      if (existing) {
+        vscode.window.showInformationMessage(`Connection for "${sbInfo.serviceBusName}" already exists.`)
+        return
+      }
+      await this.secrets.store(sbInfo.serviceBusName, sbInfo.connectionString)
+      this.refresh()
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Failed to add connection: ${errorMessage(err)}`)
+    }
+  }
+
+  async removeConnection(node?: ServiceBusItem): Promise<void> {
+    let name = node?.label
+    if (!name) {
+      const keys = await this.secrets.keys()
+      if (keys.length === 0) {
+        vscode.window.showInformationMessage('No stored connections.')
+        return
+      }
+      name = await vscode.window.showQuickPick(keys, { placeHolder: 'Select a connection to remove' })
+      if (!name) {
+        return
+      }
+    }
+    if (!await confirmDestructive(`Remove stored connection "${name}"?`, 'Remove')) {
+      return
+    }
+    await this.secrets.delete(name)
+    this.refresh()
   }
 
   getTreeItem(element: SbDependencyBase): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -42,26 +74,31 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
 
   async getChildren(element?: SbDependencyBase): Promise<SbDependencyBase[]> {
     if (!element) {
-      const sbItems = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
-      const deps = sbItems.map(item => mapUnconnectedSbToDep(item.name, item.connectionString))
+      const sbNames = await this.secrets.keys()
+      const deps: SbDependencyBase[] = []
+      for (const name of sbNames) {
+        const connectionString = await this.secrets.get(name)
+        if (connectionString) {
+          deps.push(mapUnconnectedSbToDep(name, connectionString))
+        }
+      }
       vscode.commands.executeCommand('setContext', 'horgen.peek-ui:isInitialized', true)
-      return deps.flat()
+      return deps
     }
 
     if (element instanceof ServiceBusItem) {
       if (element.isConnected) {
         const queues: SbDependencyBase[] = element.queues ? element.queues.map(queue => mapQueueToDep(queue, element.connectionString)) : []
         const topics: SbDependencyBase[] = element.topics ? element.topics.map(topic => mapTopicToDep(topic, element.connectionString)) : []
-        return Promise.resolve(queues.concat(topics))
+        return queues.concat(topics)
       }
-      return Promise.resolve([])
+      return []
     }
 
     if (element instanceof TopicItem) {
-      const subscriptions = element.subscriptions ? element.subscriptions.map(sub => mapSubscriptionToDep(sub, element.connectionString)) : []
-      return Promise.resolve(subscriptions)
+      return element.subscriptions ? element.subscriptions.map(sub => mapSubscriptionToDep(sub, element.connectionString)) : []
     }
 
-    return Promise.resolve([])
+    return []
   }
 }

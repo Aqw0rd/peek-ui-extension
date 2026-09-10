@@ -5,6 +5,7 @@ import * as service from '../utils/serviceBusService'
 import { IInteractableItem } from '../interfaces/IInteractableItem'
 import { MessagesWebView } from '../views/messagesWebView'
 import { mapQueueToDep } from '../utils/dependencyMapper'
+import { confirmDestructive, errorMessage } from '../utils/ui'
 
 export class QueueItem extends SbDependencyBase implements IInteractableItem {
   constructor(
@@ -15,7 +16,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
   ) {
     super(label, connectionString, vscode.TreeItemCollapsibleState.None)
 
-    this.tooltip = `${this.label}}`
+    this.tooltip = this.label
     this.description = this.getDescription()
     this.command = {
       command: 'horgen.peek-ui.showMessages',
@@ -33,11 +34,17 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
 
   refresh = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
-    const dep = mapQueueToDep(queue, this.connectionString)
-    this.update(dep)
-    await this.updateView()
-    provider.refresh(this)
+    try {
+      const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
+      const dep = mapQueueToDep(queue, this.connectionString)
+      this.update(dep)
+      await this.updateView()
+      provider.refresh(this)
+    }
+    catch (err) {
+      this.clearLoading(provider)
+      vscode.window.showErrorMessage(`Failed to refresh queue ${this.label}: ${errorMessage(err)}`)
+    }
   }
 
   update = (item: QueueItem) => {
@@ -55,20 +62,44 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
   }
 
   transfer = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Transfer all deadletter messages on ${this.label} back to the queue?`, 'Transfer')) {
+      return
+    }
     this.setLoading(provider)
-    await service.transferQueueDl(this.connectionString, this.label)
+    try {
+      await service.transferQueueDl(this.connectionString, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Transfer failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
   purge = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Permanently delete all messages on ${this.label}? This cannot be undone.`, 'Purge')) {
+      return
+    }
     this.setLoading(provider)
-    await service.purgeQueueMessages(this.connectionString, this.label)
+    try {
+      await service.purgeQueueMessages(this.connectionString, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Purge failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
+    if (!await confirmDestructive(`Permanently delete all deadletter messages on ${this.label}? This cannot be undone.`, 'Purge deadletter')) {
+      return
+    }
     this.setLoading(provider)
-    await service.purgeQueueDeadLetter(this.connectionString, this.label)
+    try {
+      await service.purgeQueueDeadLetter(this.connectionString, this.label)
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Purge deadletter failed for ${this.label}: ${errorMessage(err)}`)
+    }
     await this.refresh(provider)
   }
 
@@ -83,7 +114,13 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
       messagesDetails = { messages: [], deadletter: [] }
     }
     else {
-      messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      try {
+        messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      }
+      catch (err) {
+        vscode.window.showErrorMessage(`Failed to peek messages on ${this.label}: ${errorMessage(err)}`)
+        return
+      }
     }
 
     this.view = new MessagesWebView(this, messagesDetails)

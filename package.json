@@ -70,6 +70,11 @@
       {
         "command": "horgen.peek-ui.purgeDeadletter",
         "title": "Purge Deadletter"
+      },
+      {
+        "command": "horgen.peek-ui.removeConnection",
+        "title": "Remove Connection",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -105,6 +110,11 @@
           "command": "horgen.peek-ui.purgeDeadletter",
           "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
+        },
+        {
+          "command": "horgen.peek-ui.removeConnection",
+          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
+          "group": "group3"
         }
       ]
     }
