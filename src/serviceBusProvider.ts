@@ -27,25 +27,36 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
   async addConnection(): Promise<void> {
     const input = await vscode.window.showInputBox({
       prompt: 'Servicebus connectionstring',
-      password: true,
       ignoreFocusOut: true,
     })
     if (!input) {
       return
     }
-    try {
-      const sbInfo = await service.getServiceBusInfo(input)
-      const existing = await this.secrets.get(sbInfo.serviceBusName)
-      if (existing) {
-        vscode.window.showInformationMessage(`Connection for "${sbInfo.serviceBusName}" already exists.`)
-        return
-      }
-      await this.secrets.store(sbInfo.serviceBusName, sbInfo.connectionString)
-      this.refresh()
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Failed to add connection: ${errorMessage(err)}`)
-    }
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Peek: adding Service Bus…',
+        cancellable: false,
+      },
+      async (progress) => {
+        try {
+          progress.report({ message: 'Connecting…' })
+          const sbInfo = await service.getServiceBusInfo(input)
+          const existing = await this.secrets.get(sbInfo.serviceBusName)
+          if (existing) {
+            vscode.window.showInformationMessage(`Connection for "${sbInfo.serviceBusName}" already exists.`)
+            return
+          }
+          progress.report({ message: `Saving "${sbInfo.serviceBusName}"…` })
+          await this.secrets.store(sbInfo.serviceBusName, sbInfo.connectionString)
+          this.refresh()
+          vscode.window.showInformationMessage(`Added "${sbInfo.serviceBusName}".`)
+        }
+        catch (err) {
+          vscode.window.showErrorMessage(`Failed to add connection: ${errorMessage(err)}`)
+        }
+      },
+    )
   }
 
   async removeConnection(node?: ServiceBusItem): Promise<void> {
