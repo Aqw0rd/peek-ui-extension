@@ -3,8 +3,10 @@ import { ServiceBusProvider } from './serviceBusProvider'
 import { IInteractableItem } from './interfaces/IInteractableItem'
 import { SbDependencyBase } from './models/SbDependencyBase'
 import { ServiceBusItem } from './models/ServiceBusItem'
+import { initMessagesWebView } from './views/messagesWebView'
 
 export function activate(context: vscode.ExtensionContext) {
+  initMessagesWebView(context.extensionUri)
   const servicebusProvider = new ServiceBusProvider(context)
   context.subscriptions.push(
     servicebusProvider,
