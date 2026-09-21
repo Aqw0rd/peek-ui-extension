@@ -3,19 +3,26 @@ import type {
   QueueRuntimeProperties,
   TopicRuntimeProperties,
   SubscriptionRuntimeProperties,
+  ServiceBusClient,
   ServiceBusReceiver,
+  ServiceBusReceiverOptions,
   ServiceBusSender,
   ServiceBusReceivedMessage,
   ServiceBusMessage,
 } from '@azure/service-bus'
 import type { ServiceBusInfo, ServiceBusMessageDetails, TopicCustomProperties } from '../interfaces/ServiceBusInfo'
 
-import { ServiceBusAdministrationClient, ServiceBusClient } from '@azure/service-bus'
+import { ServiceBusAdministrationClient, ServiceBusClient as SbClient } from '@azure/service-bus'
 
 const RECEIVE_BATCH = 32
 const RECEIVE_WAIT_MS = 5000
 const EMPTY_ROUNDS_UNTIL_DONE = 2
 const PEEK_MAX = 250
+
+/** A queue, or a topic + subscription pair — the two kinds of entity messages can be received from. */
+export type EntityPath =
+  | { queue: string }
+  | { topic: string, subscription: string }
 
 export const getServiceBusInfo = async (connectionString: string): Promise<ServiceBusInfo> => {
   const client = new ServiceBusAdministrationClient(connectionString)
@@ -77,19 +84,19 @@ export const getSubscriptionRuntimeProperties = async (connectionString: string,
   return await client.getSubscriptionRuntimeProperties(topic, subscription)
 }
 
-export const peekQueueMessages = async (connectionString: string, queue: string, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
+export const peekMessagesFor = async (connectionString: string, path: EntityPath, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
   if (amount < 1 && dlAmount < 1) {
     return { messages: [], deadletter: [] }
   }
   amount = Math.min(amount, PEEK_MAX)
   dlAmount = Math.min(dlAmount, PEEK_MAX)
 
-  const client = new ServiceBusClient(connectionString)
+  const client = new SbClient(connectionString)
   try {
-    const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' })
+    const receiver = createEntityReceiver(client, path, { receiveMode: 'peekLock' })
     const messages = await peekMessages(receiver, amount)
 
-    const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    const dlReceiver = createEntityReceiver(client, path, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     const deadletter = await peekMessages(dlReceiver, dlAmount)
 
     return { messages, deadletter }
@@ -99,32 +106,10 @@ export const peekQueueMessages = async (connectionString: string, queue: string,
   }
 }
 
-export const peekSubscriptionMessages = async (connectionString: string, topic: string, subscription: string, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
-  if (amount < 1 && dlAmount < 1) {
-    return { messages: [], deadletter: [] }
-  }
-  amount = Math.min(amount, PEEK_MAX)
-  dlAmount = Math.min(dlAmount, PEEK_MAX)
-
-  const client = new ServiceBusClient(connectionString)
+export const purgeMessages = async (connectionString: string, path: EntityPath): Promise<void> => {
+  const client = new SbClient(connectionString)
   try {
-    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
-    const messages = await peekMessages(receiver, amount)
-
-    const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-    const deadletter = await peekMessages(dlReceiver, dlAmount)
-
-    return { messages, deadletter }
-  }
-  finally {
-    await client.close()
-  }
-}
-
-export const purgeQueueMessages = async (connectionString: string, queue: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const receiver = client.createReceiver(queue, { receiveMode: 'receiveAndDelete' })
+    const receiver = createEntityReceiver(client, path, { receiveMode: 'receiveAndDelete' })
     await drainMessages(receiver)
   }
   finally {
@@ -132,10 +117,10 @@ export const purgeQueueMessages = async (connectionString: string, queue: string
   }
 }
 
-export const purgeQueueDeadLetter = async (connectionString: string, queue: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
+export const purgeDeadLetter = async (connectionString: string, path: EntityPath): Promise<void> => {
+  const client = new SbClient(connectionString)
   try {
-    const receiver = client.createReceiver(queue, { receiveMode: 'receiveAndDelete', subQueueType: 'deadLetter' })
+    const receiver = createEntityReceiver(client, path, { receiveMode: 'receiveAndDelete', subQueueType: 'deadLetter' })
     await drainMessages(receiver)
   }
   finally {
@@ -143,11 +128,11 @@ export const purgeQueueDeadLetter = async (connectionString: string, queue: stri
   }
 }
 
-export const transferQueueDl = async (connectionString: string, queue: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
+export const transferDeadLetter = async (connectionString: string, path: EntityPath): Promise<void> => {
+  const client = new SbClient(connectionString)
   try {
-    const sender = client.createSender(queue)
-    const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    const sender = createEntitySender(client, path)
+    const dlReceiver = createEntityReceiver(client, path, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     await streamTransfer(dlReceiver, sender)
   }
   finally {
@@ -155,44 +140,10 @@ export const transferQueueDl = async (connectionString: string, queue: string): 
   }
 }
 
-export const purgeSubscriptionMessages = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
+export const deleteMessage = async (connectionString: string, path: EntityPath, sequenceNumber: string, fromDeadletter: boolean): Promise<boolean> => {
+  const client = new SbClient(connectionString)
   try {
-    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'receiveAndDelete' })
-    await drainMessages(receiver)
-  }
-  finally {
-    await client.close()
-  }
-}
-
-export const purgeSubscriptionDeadletter = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'receiveAndDelete', subQueueType: 'deadLetter' })
-    await drainMessages(receiver)
-  }
-  finally {
-    await client.close()
-  }
-}
-
-export const transferSubscriptionDl = async (connectionString: string, topic: string, subscription: string): Promise<void> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const sender = client.createSender(topic)
-    const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-    await streamTransfer(dlReceiver, sender)
-  }
-  finally {
-    await client.close()
-  }
-}
-
-export const deleteQueueMessage = async (connectionString: string, queue: string, sequenceNumber: string, fromDeadletter: boolean): Promise<boolean> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const receiver = client.createReceiver(queue, fromDeadletter
+    const receiver = createEntityReceiver(client, path, fromDeadletter
       ? { receiveMode: 'peekLock', subQueueType: 'deadLetter' }
       : { receiveMode: 'peekLock' })
     return await findAndAct(receiver, sequenceNumber, m => receiver.completeMessage(m))
@@ -202,24 +153,11 @@ export const deleteQueueMessage = async (connectionString: string, queue: string
   }
 }
 
-export const deleteSubscriptionMessage = async (connectionString: string, topic: string, subscription: string, sequenceNumber: string, fromDeadletter: boolean): Promise<boolean> => {
-  const client = new ServiceBusClient(connectionString)
+export const requeueDlMessage = async (connectionString: string, path: EntityPath, sequenceNumber: string): Promise<boolean> => {
+  const client = new SbClient(connectionString)
   try {
-    const receiver = client.createReceiver(topic, subscription, fromDeadletter
-      ? { receiveMode: 'peekLock', subQueueType: 'deadLetter' }
-      : { receiveMode: 'peekLock' })
-    return await findAndAct(receiver, sequenceNumber, m => receiver.completeMessage(m))
-  }
-  finally {
-    await client.close()
-  }
-}
-
-export const requeueQueueDlMessage = async (connectionString: string, queue: string, sequenceNumber: string): Promise<boolean> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const sender = client.createSender(queue)
-    const receiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    const sender = createEntitySender(client, path)
+    const receiver = createEntityReceiver(client, path, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     try {
       return await findAndAct(receiver, sequenceNumber, async (m) => {
         await sender.sendMessages(cloneMessage(m))
@@ -235,25 +173,13 @@ export const requeueQueueDlMessage = async (connectionString: string, queue: str
   }
 }
 
-export const requeueSubscriptionDlMessage = async (connectionString: string, topic: string, subscription: string, sequenceNumber: string): Promise<boolean> => {
-  const client = new ServiceBusClient(connectionString)
-  try {
-    const sender = client.createSender(topic)
-    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-    try {
-      return await findAndAct(receiver, sequenceNumber, async (m) => {
-        await sender.sendMessages(cloneMessage(m))
-        await receiver.completeMessage(m)
-      })
-    }
-    finally {
-      await sender.close()
-    }
-  }
-  finally {
-    await client.close()
-  }
-}
+const createEntityReceiver = (client: ServiceBusClient, path: EntityPath, options: ServiceBusReceiverOptions): ServiceBusReceiver =>
+  'queue' in path
+    ? client.createReceiver(path.queue, options)
+    : client.createReceiver(path.topic, path.subscription, options)
+
+const createEntitySender = (client: ServiceBusClient, path: EntityPath): ServiceBusSender =>
+  client.createSender('queue' in path ? path.queue : path.topic)
 
 const findAndAct = async (
   receiver: ServiceBusReceiver,

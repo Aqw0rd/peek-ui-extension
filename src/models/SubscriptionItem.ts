@@ -1,37 +1,46 @@
 import * as vscode from 'vscode'
-import { MessagesWebView } from '../views/messagesWebView'
-import * as service from '../utils/serviceBusService'
 import { ServiceBusProvider } from '../serviceBusProvider'
+import * as service from '../utils/serviceBusService'
+import { EntityPath } from '../utils/serviceBusService'
+import { InteractableDependencyBase } from './InteractableDependencyBase'
 import { mapSubscriptionToDep } from '../utils/dependencyMapper'
-import { IInteractableItem } from '../interfaces/IInteractableItem'
-import { SbDependencyBase } from './SbDependencyBase'
-import { confirmDestructive, errorMessage } from '../utils/ui'
+import { errorMessage } from '../utils/ui'
 
-export class SubscriptionItem extends SbDependencyBase implements IInteractableItem {
+export class SubscriptionItem extends InteractableDependencyBase {
   constructor(
     public readonly label: string,
-    public readonly connectionString: string,
-    public activeMessageCount: number,
-    public deadLetterMessageCount: number,
+    connectionString: string,
+    activeMessageCount: number,
+    deadLetterMessageCount: number,
     public readonly topicName: string,
   ) {
-    super(label, connectionString, vscode.TreeItemCollapsibleState.None)
-
+    super(label, connectionString, activeMessageCount, deadLetterMessageCount)
     this.tooltip = `${this.topicName}/${this.label}`
-    this.description = this.getDescription()
-    this.command = {
-      command: 'horgen.peek-ui.showMessages',
-      title: '',
-      arguments: [this],
-    }
-    this.view = undefined
   }
 
-  contextValue = 'interactableDependency'
-  iconPath = new vscode.ThemeIcon('database')
-  view: MessagesWebView | undefined
+  protected get entityPath(): EntityPath {
+    return { topic: this.topicName, subscription: this.label }
+  }
 
-  getDescription = () => `${this.activeMessageCount} | ${this.deadLetterMessageCount}`
+  protected get entityKind() {
+    return 'subscription' as const
+  }
+
+  protected get entityLabel() {
+    return `${this.topicName}/${this.label}`
+  }
+
+  protected get requeueTargetLabel() {
+    return this.topicName
+  }
+
+  protected get deadletterLocationLabel() {
+    return `${this.topicName}/${this.label} (deadletter)`
+  }
+
+  protected get transferTargetWord() {
+    return 'topic'
+  }
 
   refresh = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
@@ -53,122 +62,5 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     this.deadLetterMessageCount = item.deadLetterMessageCount
     this.description = item.getDescription()
     this.iconPath = new vscode.ThemeIcon('database')
-  }
-
-  updateView = async () => {
-    if (this.view) {
-      const messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
-      this.view.update(messagesDetails)
-    }
-  }
-
-  transfer = async (provider: ServiceBusProvider) => {
-    if (!await confirmDestructive(`Transfer all deadletter messages on ${this.topicName}/${this.label} back to the topic?`, 'Transfer')) {
-      return
-    }
-    this.setLoading(provider)
-    try {
-      await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Transfer failed for ${this.label}: ${errorMessage(err)}`)
-    }
-    await this.refresh(provider)
-  }
-
-  purge = async (provider: ServiceBusProvider) => {
-    if (!await confirmDestructive(`Permanently delete all messages on ${this.topicName}/${this.label}? This cannot be undone.`, 'Purge')) {
-      return
-    }
-    this.setLoading(provider)
-    try {
-      await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Purge failed for ${this.label}: ${errorMessage(err)}`)
-    }
-    await this.refresh(provider)
-  }
-
-  purgeDl = async (provider: ServiceBusProvider) => {
-    if (!await confirmDestructive(`Permanently delete all deadletter messages on ${this.topicName}/${this.label}? This cannot be undone.`, 'Purge deadletter')) {
-      return
-    }
-    this.setLoading(provider)
-    try {
-      await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Purge deadletter failed for ${this.label}: ${errorMessage(err)}`)
-    }
-    await this.refresh(provider)
-  }
-
-  deleteMessage = async (provider: ServiceBusProvider, sequenceNumber: string, fromDeadletter: boolean) => {
-    const scope = `${this.topicName}/${this.label}${fromDeadletter ? ' (deadletter)' : ''}`
-    const warning = fromDeadletter
-      ? ''
-      : ' Note: sibling messages in the subscription will have their delivery count incremented while we search.'
-    if (!await confirmDestructive(`Permanently delete message with sequence ${sequenceNumber} from ${scope}?${warning}`, 'Delete')) {
-      return
-    }
-    this.setLoading(provider)
-    try {
-      const found = await service.deleteSubscriptionMessage(this.connectionString, this.topicName, this.label, sequenceNumber, fromDeadletter)
-      if (!found) {
-        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found — it may already have been consumed.`)
-      }
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Delete failed for ${this.label}: ${errorMessage(err)}`)
-    }
-    await this.refresh(provider)
-  }
-
-  requeueDlMessage = async (provider: ServiceBusProvider, sequenceNumber: string) => {
-    if (!await confirmDestructive(`Requeue deadletter message ${sequenceNumber} back onto ${this.topicName}?`, 'Requeue')) {
-      return
-    }
-    this.setLoading(provider)
-    try {
-      const found = await service.requeueSubscriptionDlMessage(this.connectionString, this.topicName, this.label, sequenceNumber)
-      if (!found) {
-        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found in the deadletter queue.`)
-      }
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Requeue failed for ${this.label}: ${errorMessage(err)}`)
-    }
-    await this.refresh(provider)
-  }
-
-  show = async (provider: ServiceBusProvider) => {
-    if (this.view) {
-      this.view.reveal()
-      return
-    }
-
-    let messagesDetails
-    if (this.activeMessageCount < 1 && this.deadLetterMessageCount < 1) {
-      messagesDetails = { messages: [], deadletter: [] }
-    }
-    else {
-      try {
-        messagesDetails = await service.peekSubscriptionMessages(this.connectionString, this.topicName, this.label, this.activeMessageCount, this.deadLetterMessageCount)
-      }
-      catch (err) {
-        vscode.window.showErrorMessage(`Failed to peek messages on ${this.label}: ${errorMessage(err)}`)
-        return
-      }
-    }
-
-    this.view = new MessagesWebView(this, messagesDetails, {
-      onDelete: (seq, fromDl) => this.deleteMessage(provider, seq, fromDl),
-      onRequeueDl: seq => this.requeueDlMessage(provider, seq),
-    })
-    this.view.show()
-    this.view.panel?.onDidDispose(() => {
-      this.view = undefined
-    })
   }
 }
