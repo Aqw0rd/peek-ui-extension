@@ -12,10 +12,23 @@ export const initMessagesWebView = (uri: vscode.Uri): void => {
   templateCache = undefined
 }
 
+export type MessageActionHandlers = {
+  onDelete?: (sequenceNumber: string, fromDeadletter: boolean, messageId: string) => Promise<void>
+  onRequeueDl?: (sequenceNumber: string, messageId: string) => Promise<void>
+}
+
+type WebviewInboundMessage =
+  | { command: 'delete', kind: 'msg' | 'dl', sequenceNumber: string, messageId: string }
+  | { command: 'requeue', sequenceNumber: string, messageId: string }
+
 export class MessagesWebView {
   public panel: vscode.WebviewPanel | undefined
 
-  constructor(private dependency: SbDependencyBase, private messagesDetails: ServiceBusMessageDetails) {}
+  constructor(
+    private dependency: SbDependencyBase,
+    private messagesDetails: ServiceBusMessageDetails,
+    private handlers: MessageActionHandlers = {},
+  ) {}
 
   public reveal() {
     if (this.panel?.visible === false) {
@@ -44,6 +57,15 @@ export class MessagesWebView {
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media', 'webview')],
       },
     )
+
+    this.panel.webview.onDidReceiveMessage(async (msg: WebviewInboundMessage) => {
+      if (msg.command === 'delete' && this.handlers.onDelete) {
+        await this.handlers.onDelete(msg.sequenceNumber, msg.kind === 'dl', msg.messageId)
+      }
+      else if (msg.command === 'requeue' && this.handlers.onRequeueDl) {
+        await this.handlers.onRequeueDl(msg.sequenceNumber, msg.messageId)
+      }
+    })
 
     this.panel.webview.html = this.getWebviewContent()
   }
@@ -81,7 +103,7 @@ const loadTemplate = (path: string): string => {
 const renderTemplate = (template: string, values: Record<string, string>): string =>
   template.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? '')
 
-const createTable = (messages: ServiceBusReceivedMessage[], prefix: string): string => {
+const createTable = (messages: ServiceBusReceivedMessage[], prefix: 'msg' | 'dl'): string => {
   if (messages.length === 0) {
     return `<div class="empty">No messages.</div>`
   }
@@ -90,6 +112,16 @@ const createTable = (messages: ServiceBusReceivedMessage[], prefix: string): str
     const { pretty, preview } = renderBody(m.body)
     const detailsId = `${prefix}-body-${i}`
     const idText = m.messageId?.toString() ?? ''
+    const seq = m.sequenceNumber !== undefined ? String(m.sequenceNumber) : ''
+    const canAct = seq !== ''
+    const idAttr = escapeHtml(idText)
+    const seqAttr = escapeHtml(seq)
+    const actionButtons = canAct
+      ? (prefix === 'dl'
+          ? `<button class="action-btn" data-action="requeue" data-seq="${seqAttr}" data-id="${idAttr}" title="Requeue this message to the parent">Requeue</button>
+             <button class="action-btn danger" data-action="delete" data-kind="dl" data-seq="${seqAttr}" data-id="${idAttr}" title="Delete this deadletter message">Delete</button>`
+          : `<button class="action-btn danger" data-action="delete" data-kind="msg" data-seq="${seqAttr}" data-id="${idAttr}" title="Delete this message">Delete</button>`)
+      : ''
     return `<tr>
         <td class="id">${escapeHtml(idText)}</td>
         <td>
@@ -101,6 +133,7 @@ const createTable = (messages: ServiceBusReceivedMessage[], prefix: string): str
         <td class="mono" title="${escapeHtml(m.enqueuedTimeUtc?.toISOString() ?? '')}">${escapeHtml(formatTimestamp(m.enqueuedTimeUtc))}</td>
         <td class="mono" title="${escapeHtml(m.scheduledEnqueueTimeUtc?.toISOString() ?? '')}">${escapeHtml(formatTimestamp(m.scheduledEnqueueTimeUtc))}</td>
         <td class="num">${escapeHtml(String(m.deliveryCount ?? ''))}</td>
+        <td class="actions">${actionButtons}</td>
       </tr>`
   })
 
@@ -111,6 +144,7 @@ const createTable = (messages: ServiceBusReceivedMessage[], prefix: string): str
         <col class="c-enq">
         <col class="c-sched">
         <col class="c-dc">
+        <col class="c-actions">
       </colgroup>
       <thead>
         <tr>
@@ -119,6 +153,7 @@ const createTable = (messages: ServiceBusReceivedMessage[], prefix: string): str
           <th>Enqueued (UTC)</th>
           <th>Scheduled</th>
           <th>Delivery</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>${rows.join('')}</tbody>

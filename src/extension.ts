@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('horgen.peek-ui.removeConnection', (node?: ServiceBusItem) => servicebusProvider.removeConnection(node)),
     vscode.commands.registerCommand('horgen.peek-ui.connect', (node: ServiceBusItem) => node.connect(servicebusProvider)),
     vscode.commands.registerCommand('horgen.peek-ui.refresh', (node: SbDependencyBase) => node.refresh(servicebusProvider)),
-    vscode.commands.registerCommand('horgen.peek-ui.showMessages', (node: IInteractableItem) => node.show()),
+    vscode.commands.registerCommand('horgen.peek-ui.showMessages', (node: IInteractableItem) => node.show(servicebusProvider)),
     vscode.commands.registerCommand('horgen.peek-ui.transferDeadletterAll', (node: IInteractableItem) => node.transfer(servicebusProvider)),
     vscode.commands.registerCommand('horgen.peek-ui.purgeMessages', (node: IInteractableItem) => node.purge(servicebusProvider)),
     vscode.commands.registerCommand('horgen.peek-ui.purgeDeadletter', (node: IInteractableItem) => node.purgeDl(servicebusProvider)),

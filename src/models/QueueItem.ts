@@ -103,7 +103,45 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     await this.refresh(provider)
   }
 
-  show = async () => {
+  deleteMessage = async (provider: ServiceBusProvider, sequenceNumber: string, fromDeadletter: boolean) => {
+    const location = fromDeadletter ? 'the deadletter queue' : this.label
+    const warning = fromDeadletter
+      ? ''
+      : ' Note: sibling messages in the queue will have their delivery count incremented while we search.'
+    if (!await confirmDestructive(`Permanently delete message with sequence ${sequenceNumber} from ${location}?${warning}`, 'Delete')) {
+      return
+    }
+    this.setLoading(provider)
+    try {
+      const found = await service.deleteQueueMessage(this.connectionString, this.label, sequenceNumber, fromDeadletter)
+      if (!found) {
+        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found — it may already have been consumed.`)
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Delete failed for ${this.label}: ${errorMessage(err)}`)
+    }
+    await this.refresh(provider)
+  }
+
+  requeueDlMessage = async (provider: ServiceBusProvider, sequenceNumber: string) => {
+    if (!await confirmDestructive(`Requeue deadletter message ${sequenceNumber} back onto ${this.label}?`, 'Requeue')) {
+      return
+    }
+    this.setLoading(provider)
+    try {
+      const found = await service.requeueQueueDlMessage(this.connectionString, this.label, sequenceNumber)
+      if (!found) {
+        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found in the deadletter queue.`)
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Requeue failed for ${this.label}: ${errorMessage(err)}`)
+    }
+    await this.refresh(provider)
+  }
+
+  show = async (provider: ServiceBusProvider) => {
     if (this.view) {
       this.view.reveal()
       return
@@ -123,7 +161,10 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
       }
     }
 
-    this.view = new MessagesWebView(this, messagesDetails)
+    this.view = new MessagesWebView(this, messagesDetails, {
+      onDelete: (seq, fromDl) => this.deleteMessage(provider, seq, fromDl),
+      onRequeueDl: seq => this.requeueDlMessage(provider, seq),
+    })
     this.view.show()
     this.view.panel?.onDidDispose(() => {
       this.view = undefined

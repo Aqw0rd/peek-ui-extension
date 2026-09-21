@@ -104,7 +104,45 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     await this.refresh(provider)
   }
 
-  show = async () => {
+  deleteMessage = async (provider: ServiceBusProvider, sequenceNumber: string, fromDeadletter: boolean) => {
+    const scope = `${this.topicName}/${this.label}${fromDeadletter ? ' (deadletter)' : ''}`
+    const warning = fromDeadletter
+      ? ''
+      : ' Note: sibling messages in the subscription will have their delivery count incremented while we search.'
+    if (!await confirmDestructive(`Permanently delete message with sequence ${sequenceNumber} from ${scope}?${warning}`, 'Delete')) {
+      return
+    }
+    this.setLoading(provider)
+    try {
+      const found = await service.deleteSubscriptionMessage(this.connectionString, this.topicName, this.label, sequenceNumber, fromDeadletter)
+      if (!found) {
+        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found — it may already have been consumed.`)
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Delete failed for ${this.label}: ${errorMessage(err)}`)
+    }
+    await this.refresh(provider)
+  }
+
+  requeueDlMessage = async (provider: ServiceBusProvider, sequenceNumber: string) => {
+    if (!await confirmDestructive(`Requeue deadletter message ${sequenceNumber} back onto ${this.topicName}?`, 'Requeue')) {
+      return
+    }
+    this.setLoading(provider)
+    try {
+      const found = await service.requeueSubscriptionDlMessage(this.connectionString, this.topicName, this.label, sequenceNumber)
+      if (!found) {
+        vscode.window.showWarningMessage(`Message ${sequenceNumber} was not found in the deadletter queue.`)
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Requeue failed for ${this.label}: ${errorMessage(err)}`)
+    }
+    await this.refresh(provider)
+  }
+
+  show = async (provider: ServiceBusProvider) => {
     if (this.view) {
       this.view.reveal()
       return
@@ -124,7 +162,10 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
       }
     }
 
-    this.view = new MessagesWebView(this, messagesDetails)
+    this.view = new MessagesWebView(this, messagesDetails, {
+      onDelete: (seq, fromDl) => this.deleteMessage(provider, seq, fromDl),
+      onRequeueDl: seq => this.requeueDlMessage(provider, seq),
+    })
     this.view.show()
     this.view.panel?.onDidDispose(() => {
       this.view = undefined

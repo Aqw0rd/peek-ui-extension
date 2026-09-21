@@ -139,10 +139,42 @@ td.truncate {
 
 /* proportional column widths.
    Body ('c-body') has no explicit width and absorbs the remainder. */
-col.c-id    { width: 28%; }
-col.c-enq   { width: 15%; }
-col.c-sched { width: 15%; }
-col.c-dc    { width: 72px; }
+col.c-id      { width: 24%; }
+col.c-enq     { width: 14%; }
+col.c-sched   { width: 14%; }
+col.c-dc      { width: 60px; }
+col.c-actions { width: 150px; }
+
+td.actions {
+    white-space: nowrap;
+    text-align: right;
+    padding-right: 12px;
+}
+
+button.action-btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 8px;
+    margin-left: 4px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+    cursor: pointer;
+}
+
+button.action-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.15)));
+}
+
+button.action-btn.danger {
+    color: var(--vscode-errorForeground);
+    border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+
+button.action-btn.danger:hover {
+    background: var(--vscode-inputValidation-errorBackground, rgba(255, 80, 80, 0.15));
+}
 
 td.id {
     font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);

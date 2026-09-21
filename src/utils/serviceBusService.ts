@@ -189,6 +189,115 @@ export const transferSubscriptionDl = async (connectionString: string, topic: st
   }
 }
 
+export const deleteQueueMessage = async (connectionString: string, queue: string, sequenceNumber: string, fromDeadletter: boolean): Promise<boolean> => {
+  const client = new ServiceBusClient(connectionString)
+  try {
+    const receiver = client.createReceiver(queue, fromDeadletter
+      ? { receiveMode: 'peekLock', subQueueType: 'deadLetter' }
+      : { receiveMode: 'peekLock' })
+    return await findAndAct(receiver, sequenceNumber, m => receiver.completeMessage(m))
+  }
+  finally {
+    await client.close()
+  }
+}
+
+export const deleteSubscriptionMessage = async (connectionString: string, topic: string, subscription: string, sequenceNumber: string, fromDeadletter: boolean): Promise<boolean> => {
+  const client = new ServiceBusClient(connectionString)
+  try {
+    const receiver = client.createReceiver(topic, subscription, fromDeadletter
+      ? { receiveMode: 'peekLock', subQueueType: 'deadLetter' }
+      : { receiveMode: 'peekLock' })
+    return await findAndAct(receiver, sequenceNumber, m => receiver.completeMessage(m))
+  }
+  finally {
+    await client.close()
+  }
+}
+
+export const requeueQueueDlMessage = async (connectionString: string, queue: string, sequenceNumber: string): Promise<boolean> => {
+  const client = new ServiceBusClient(connectionString)
+  try {
+    const sender = client.createSender(queue)
+    const receiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    try {
+      return await findAndAct(receiver, sequenceNumber, async (m) => {
+        await sender.sendMessages(cloneMessage(m))
+        await receiver.completeMessage(m)
+      })
+    }
+    finally {
+      await sender.close()
+    }
+  }
+  finally {
+    await client.close()
+  }
+}
+
+export const requeueSubscriptionDlMessage = async (connectionString: string, topic: string, subscription: string, sequenceNumber: string): Promise<boolean> => {
+  const client = new ServiceBusClient(connectionString)
+  try {
+    const sender = client.createSender(topic)
+    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
+    try {
+      return await findAndAct(receiver, sequenceNumber, async (m) => {
+        await sender.sendMessages(cloneMessage(m))
+        await receiver.completeMessage(m)
+      })
+    }
+    finally {
+      await sender.close()
+    }
+  }
+  finally {
+    await client.close()
+  }
+}
+
+const findAndAct = async (
+  receiver: ServiceBusReceiver,
+  sequenceNumber: string,
+  action: (message: ServiceBusReceivedMessage) => Promise<void>,
+): Promise<boolean> => {
+  try {
+    const seen = new Set<string>()
+    let emptyRounds = 0
+    while (emptyRounds < EMPTY_ROUNDS_UNTIL_DONE) {
+      const batch = await receiver.receiveMessages(RECEIVE_BATCH, { maxWaitTimeInMs: RECEIVE_WAIT_MS })
+      if (batch.length === 0) {
+        emptyRounds++
+        continue
+      }
+      emptyRounds = 0
+
+      const target = batch.find(m => String(m.sequenceNumber) === sequenceNumber)
+      if (target) {
+        await action(target)
+        for (const m of batch) {
+          if (m !== target) {
+            await receiver.abandonMessage(m)
+          }
+        }
+        return true
+      }
+
+      const allSeen = batch.every(m => seen.has(String(m.sequenceNumber)))
+      for (const m of batch) {
+        seen.add(String(m.sequenceNumber))
+        await receiver.abandonMessage(m)
+      }
+      if (allSeen) {
+        return false
+      }
+    }
+    return false
+  }
+  finally {
+    await receiver.close()
+  }
+}
+
 const drainMessages = async (receiver: ServiceBusReceiver) => {
   try {
     let emptyRounds = 0
